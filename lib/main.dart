@@ -135,20 +135,22 @@ class _ListModeState extends State<ListMode> {
               widget.suggestions[index].asPascalCase,
               style: widget.biggerFont,
             ),
-            trailing: Icon(
-              alreadySaved ? Icons.favorite : Icons.favorite_border,
-              color: alreadySaved ? Colors.red : null,
-              semanticLabel: alreadySaved ? "Remove from saved" : "Save",
+            trailing: GestureDetector(
+              onTap: () {
+                setState(() {
+                  if (alreadySaved) {
+                    widget.saved.remove(widget.suggestions[index]);
+                  } else {
+                    widget.saved.add(widget.suggestions[index]);
+                  }
+                });
+              },
+              child: Icon(
+                alreadySaved ? Icons.favorite : Icons.favorite_border,
+                color: alreadySaved ? Colors.red : null,
+                semanticLabel: alreadySaved ? "Remove from saved" : "Save",
+              ),
             ),
-            onTap: () {
-              setState(() {
-                if (alreadySaved) {
-                  widget.saved.remove(widget.suggestions[index]);
-                } else {
-                  widget.saved.add(widget.suggestions[index]);
-                }
-              });
-            },
           );
         },
       );
