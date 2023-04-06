@@ -18,7 +18,10 @@ class MyApp extends StatelessWidget {
         )
       ),
       title: 'Welcome to Flutter',
-      home: const RandomWords()
+      routes: {
+        '/': (context) => const RandomWords(),
+        '/editar':(context) => const EditScreen()
+      },
     );
   }
 }
@@ -31,7 +34,7 @@ class RandomWords extends StatefulWidget {
 }
 
 class _RandomWordsState extends State<RandomWords> {
-  final _suggestions = <WordPair>[];
+  final _suggestions = WordRepository();
   final _saved = <WordPair>{};
   final _biggerFont = const TextStyle(fontSize: 18);
   bool listOrCards = false;
@@ -108,7 +111,7 @@ class _RandomWordsState extends State<RandomWords> {
 }
 
 class ListMode extends StatefulWidget {
-  final List<WordPair> suggestions;
+  final WordRepository suggestions;
   final Set<WordPair> saved;
   final TextStyle biggerFont;
   const ListMode({super.key, required this.suggestions, required this.saved, required this.biggerFont});
@@ -120,36 +123,52 @@ class ListMode extends StatefulWidget {
 class _ListModeState extends State<ListMode> {
   @override
   Widget build(BuildContext context) {
+    
     return ListView.builder(
         padding: const EdgeInsets.all(16.0),
         itemBuilder: (context, i) {
           if(i.isOdd) return const Divider();
 
           final index = i ~/2;
-          if (index >= widget.suggestions.length) {
-            widget.suggestions.addAll(generateWordPairs().take(10));
-          }
-          final alreadySaved = widget.saved.contains(widget.suggestions[index]);
+          
+          final alreadySaved = widget.saved.contains(widget.suggestions.words[index]);
           return ListTile(
             title: Text(
-              widget.suggestions[index].asPascalCase,
+              widget.suggestions.words[index].asPascalCase,
               style: widget.biggerFont,
             ),
-            trailing: GestureDetector(
-              onTap: () {
-                setState(() {
-                  if (alreadySaved) {
-                    widget.saved.remove(widget.suggestions[index]);
-                  } else {
-                    widget.saved.add(widget.suggestions[index]);
-                  }
-                });
-              },
-              child: Icon(
-                alreadySaved ? Icons.favorite : Icons.favorite_border,
-                color: alreadySaved ? Colors.red : null,
-                semanticLabel: alreadySaved ? "Remove from saved" : "Save",
-              ),
+            trailing: Row(
+              children: [
+                GestureDetector(
+                  onTap: () {
+                    setState(() {
+                      if (alreadySaved) {
+                        widget.saved.remove(widget.suggestions.words[index]);
+                      } else {
+                        widget.saved.add(widget.suggestions.words[index]);
+                      }
+                    });
+                  },
+                  child: Icon(
+                    alreadySaved ? Icons.favorite : Icons.favorite_border,
+                    color: alreadySaved ? Colors.red : null,
+                    semanticLabel: alreadySaved ? "Remove from saved" : "Save",
+                  ),
+                ),
+                GestureDetector(
+                  onTap: () async {
+                    final updatedWord = await Navigator.pushReplacementNamed(context, '/editar', arguments: {'word': widget.suggestions.words[index]});
+                    setState(() {
+                      widget.suggestions.words[index] = updatedWord;
+                    });
+                  },
+                  child: Icon(
+                    Icons.edit,
+                    color: alreadySaved ? Colors.red : null,
+                    semanticLabel: alreadySaved ? "Remove from saved" : "Save",
+                  ),
+                ),
+              ],
             ),
           );
         },
@@ -158,7 +177,7 @@ class _ListModeState extends State<ListMode> {
 }
 
 class CardMode extends StatefulWidget {
-  final List<WordPair> suggestions;
+  final WordRepository suggestions;
   final Set<WordPair> saved;
   final TextStyle biggerFont;
   const CardMode({super.key, required this.suggestions, required this.saved, required this.biggerFont});
@@ -174,10 +193,7 @@ class _CardModeState extends State<CardMode> {
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2),
       padding: const EdgeInsets.all(16.0),
       itemBuilder: ((context, i) {
-        if (i >= widget.suggestions.length - 1) {
-            widget.suggestions.addAll(generateWordPairs().take(10));
-        }
-        final alreadySaved = widget.saved.contains(widget.suggestions[i]);
+        final alreadySaved = widget.saved.contains(widget.suggestions.words[i]);
         return Row(
           children: [
             Flexible(
@@ -189,9 +205,9 @@ class _CardModeState extends State<CardMode> {
                   onTap: () {
                     setState(() {
                       if (alreadySaved) {
-                        widget.saved.remove(widget.suggestions[i]);
+                        widget.saved.remove(widget.suggestions.words[i]);
                       } else {
-                        widget.saved.add(widget.suggestions[i]);
+                        widget.saved.add(widget.suggestions.words[i]);
                       }
                     });
                   },
@@ -201,7 +217,7 @@ class _CardModeState extends State<CardMode> {
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
-                          Text("${widget.suggestions[i]}"),
+                          Text("${widget.suggestions.words[i]}"),
                           Icon(
                             alreadySaved ? Icons.favorite : Icons.favorite_border,
                             color: alreadySaved ? Colors.red : null,
@@ -220,3 +236,54 @@ class _CardModeState extends State<CardMode> {
     );
   }
 }
+
+class WordRepository {
+  List<WordPair> _words = generateWordPairs().take(20).toList();
+
+  get words => _words;
+  set setWords (List<WordPair> newList) {
+    _words = newList;
+  }
+}
+
+class EditScreen extends StatefulWidget {
+  const EditScreen({super.key});
+
+  @override
+  State<EditScreen> createState() => _EditScreenState();
+}
+
+class _EditScreenState extends State<EditScreen> {
+
+  @override
+  Widget build(BuildContext context) {
+    final args = ModalRoute.of(context)!.settings.arguments as Map<String, dynamic>;
+    final word = args['word'];
+    String? newWord = '';
+    final controller = TextEditingController(text: word);
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Editar palavra"),
+      ),
+      body: Center(
+        child: Column(
+          children: [
+            TextFormField(
+              controller: controller,
+              onSaved: (value) {
+                newWord = value;
+              },   
+            ),
+            ElevatedButton(onPressed: () {
+              final form = Form.of(context);
+              if(form.validate()){
+                form.save();
+                Navigator.pop(context, newWord);
+              }
+            }, child: const Text('Confirmar'))
+          ],
+        )
+      ),
+    );
+  }
+} 
